@@ -1,7 +1,10 @@
-import psycopg2
 import os
+import psycopg2
 
 def get_connection():
-    return psycopg2.connect(
-        os.environ["postgresql://neondb_owner:npg_aGzdo2jblwx9@ep-holy-smoke-a4e3gdau-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"]
-    )
+    database_url = os.environ.get("DATABASE_URL")  # ✅ KEY name
+
+    if not database_url:
+        raise RuntimeError("DATABASE_URL not set")
+
+    return psycopg2.connect(database_url)

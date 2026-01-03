@@ -4,7 +4,7 @@
 from flask import Flask, render_template, request, session, jsonify, send_from_directory
 from datetime import date
 import time, os, uuid
-from backend.db import get_connection
+from db import get_connection
 
 # ReportLab – Enhanced Professional Invoice
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, PageBreak
