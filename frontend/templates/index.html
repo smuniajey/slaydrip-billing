@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SLAYDRIP Billing</title>
+
+    <!-- ================= MAIN STYLESHEET ================= -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="page">
+    <div class="form-wrapper">
+
+        <!-- ================= BRAND HEADER ================= -->
+        <h1 class="brand">SLAYDRIP</h1>
+        <p class="subtitle">Billing & Checkout</p>
+
+        <!-- ================= CUSTOMER DETAILS ================= -->
+        <h2>Customer Details</h2>
+
+        <div class="field">
+            <label for="customer_name">Customer Name</label>
+            <input
+                type="text"
+                id="customer_name"
+                name="customer_name"
+                placeholder="Enter full name"
+            >
+        </div>
+
+        <div class="field">
+            <label for="phone">Phone Number</label>
+            <input
+                type="text"
+                id="phone"
+                name="phone"
+                placeholder="Enter phone number"
+            >
+        </div>
+
+        <!-- ================= PRODUCT DETAILS ================= -->
+        <h2>Product Details</h2>
+
+        <!-- DESIGN DROPDOWN -->
+        <div class="field">
+            <label for="design">Design</label>
+            <select id="design" name="design_id">
+                <option value="">Select design</option>
+                {% for d in designs %}
+                <option
+                    value="{{ d.design_id }}"
+                    data-price="{{ d.price }}">
+                    {{ d.design_code }} | {{ d.product_name }} | {{ d.color }} | {{ d.gender }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- SIZE DROPDOWN -->
+        <div class="field">
+            <label for="size">Size</label>
+            <select id="size" name="size" required>
+                <option value="">Select size</option>
+            </select>
+        </div>
+
+        <!-- QUANTITY INPUT -->
+        <div class="field">
+            <label for="quantity">Quantity</label>
+            <input
+                type="number"
+                id="quantity"
+                name="quantity"
+                placeholder="Enter quantity"
+                min="1"
+            >
+        </div>
+
+        <!-- ADD TO CART BUTTON -->
+        <button
+            type="button"
+            class="primary-btn"
+            onclick="addToCart()">
+            Add to Cart
+        </button>
+
+        <!-- ================= CART TABLE ================= -->
+        <h2 style="margin-top:30px;">Cart</h2>
+
+        <table id="cart-table">
+            <thead>
+                <tr>
+                    <th>Design</th>
+                    <th>Size</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Total</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="cart-body">
+                <!-- Filled by JS -->
+            </tbody>
+        </table>
+
+
+    <div class="bill-summary">
+    
+    <hr>
+
+    
+</div>
+
+
+        <!-- ================= GRAND TOTAL ================= -->
+        <div class="cart-total">
+            <span>Total Amount</span>
+            <span id="grand-total">₹0</span>
+        </div>
+
+        <!-- ================= PAYMENT MODE ================= -->
+        <div class="field">
+            <label for="payment_mode"><strong>Payment Mode</strong></label>
+            <select name="payment_mode" id="payment_mode">
+                <option value="">-- Select Payment Mode --</option>
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI</option>
+                <option value="Card">Card</option>
+            </select>
+
+
+            <label>Discount (%)</label>
+    <input 
+        type="number"
+        id="discount_percent"
+        name="discount_percent"
+        value="{{ discount_percent }}"
+        step="0.01"
+        required
+    >
+
+        </div>
+
+        <!-- ================= CONTINUE ================= -->
+        <button
+            type="button"
+            class="primary-btn"
+            onclick="proceedToCheckout()">
+            Continue
+        </button>
+
+    </div>
+</div>
+
+<!-- ================= JAVASCRIPT ================= -->
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+</html>

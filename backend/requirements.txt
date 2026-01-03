@@ -1,0 +1,7 @@
+flask
+mysql-connector-python
+Flask
+gunicorn
+psycopg2-binary
+reportlab
+python-dotenv
