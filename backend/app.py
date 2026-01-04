@@ -4,8 +4,8 @@
 from flask import Flask, render_template, request, session, jsonify, send_from_directory, redirect, url_for, flash
 from datetime import date
 import time, os, uuid
-from backend.db import get_connection
-#from db import get_connection
+#from backend.db import get_connection
+from db import get_connection
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
