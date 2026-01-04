@@ -1,11 +1,14 @@
 # =====================================================
 # IMPORTS
 # =====================================================
-from flask import Flask, render_template, request, session, jsonify, send_from_directory
+from flask import Flask, render_template, request, session, jsonify, send_from_directory, redirect, url_for, flash
 from datetime import date
 import time, os, uuid
 from backend.db import get_connection
+#from db import get_connection
 from psycopg2.extras import RealDictCursor
+from werkzeug.security import check_password_hash, generate_password_hash
+from functools import wraps
 
 # ReportLab – Enhanced Professional Invoice
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, PageBreak
@@ -33,6 +36,30 @@ app = Flask(
     static_url_path="/static"
 )
 app.secret_key = "slaydrip_secret_key"
+
+# =====================================================
+# LOGIN REQUIRED DECORATOR
+# =====================================================
+def login_required(f):
+    """Decorator to protect routes that require authentication"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'staff_id' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# =====================================================
+# LOGIN REQUIRED DECORATOR
+# =====================================================
+def login_required(f):
+    """Decorator to protect routes that require authentication"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'staff_id' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 # =====================================================
 # CUSTOM PAGE TEMPLATE WITH WATERMARK
@@ -87,9 +114,85 @@ class InvoiceCanvas(canvas.Canvas):
         self.restoreState()
 
 # =====================================================
+# LOGIN
+# =====================================================
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        
+        if not username or not password:
+            return render_template("login.html", error="Please enter both username and password")
+        
+        conn = get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute("""
+            SELECT staff_id, username, password, full_name, is_active
+            FROM staff
+            WHERE username=%s
+        """, (username,))
+        
+        staff = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if staff and staff["is_active"]:
+            # Check hashed password
+            if check_password_hash(staff["password"], password):
+                session["staff_id"] = staff["staff_id"]
+                session["staff_name"] = staff["full_name"]
+                session["username"] = staff["username"]
+                return redirect(url_for("home"))
+        
+        return render_template("login.html", error="Invalid username or password")
+    
+    # If already logged in, redirect to home
+    if 'staff_id' in session:
+        return redirect(url_for('home'))
+    
+    return render_template("login.html")
+
+# =====================================================
+# LOGOUT
+# =====================================================
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+# =====================================================
+# UPDATE STALL LOCATION
+# =====================================================
+@app.route("/update-stall-location", methods=["POST"])
+@login_required
+def update_stall_location():
+    stall_location = request.form.get("stall_location", "").strip()
+    
+    if not stall_location:
+        return redirect(url_for("home"))
+    
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        UPDATE store_settings
+        SET current_stall_location=%s
+        WHERE id=1
+    """, (stall_location,))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+    
+    return redirect(url_for("home"))
+
+# =====================================================
 # HOME
 # =====================================================
-@app. route("/")
+@app.route("/")
+@login_required
 def home():
     conn = get_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -100,18 +203,27 @@ def home():
     """)
     designs = cursor. fetchall()
 
-    cursor.execute("SELECT discount_percent FROM store_settings WHERE id=1")
-    discount_percent = cursor.fetchone()["discount_percent"]
+    cursor.execute("SELECT discount_percent, current_stall_location FROM store_settings WHERE id=1")
+    settings = cursor.fetchone()
+    discount_percent = settings["discount_percent"]
+    current_stall_location = settings.get("current_stall_location", "Main Store")
 
     cursor.close()
     conn.close()
 
-    return render_template("index.html", designs=designs, discount_percent=discount_percent)
+    return render_template(
+        "index.html", 
+        designs=designs, 
+        discount_percent=discount_percent,
+        current_stall_location=current_stall_location,
+        staff_name=session.get("staff_name", "Unknown")
+    )
 
 # =====================================================
 # GET SIZES
 # =====================================================
 @app.route("/get-sizes/<int:design_id>")
+@login_required
 def get_sizes(design_id):
     conn = get_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -130,6 +242,7 @@ def get_sizes(design_id):
 # SAVE CART
 # =====================================================
 @app.route("/save-cart", methods=["POST"])
+@login_required
 def save_cart():
     session["cart"] = request.json. get("cart", [])
     session.modified = True
@@ -139,6 +252,7 @@ def save_cart():
 # CHECKOUT
 # =====================================================
 @app.route("/checkout", methods=["POST"])
+@login_required
 def checkout():
     cart = session.get("cart", [])
     if not cart:
@@ -154,8 +268,14 @@ def checkout():
     conn = get_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-    cursor.execute("SELECT gst_percent FROM store_settings WHERE id=1")
-    default_gst_percent = float(cursor.fetchone()["gst_percent"])
+    cursor.execute("SELECT gst_percent, current_stall_location FROM store_settings WHERE id=1")
+    settings = cursor.fetchone()
+    default_gst_percent = float(settings["gst_percent"])
+    stall_location = settings.get("current_stall_location", "Main Store")
+    
+    # Get staff info from session
+    staff_id = session.get("staff_id")
+    staff_name = session.get("staff_name", "Unknown")
 
     cursor.execute("SELECT last_number FROM invoice_counter WHERE id=1")
     last_no = cursor.fetchone()["last_number"] + 1
@@ -300,7 +420,9 @@ def checkout():
                 f"<b>Invoice No:</b> {invoice_no}<br/>"
                 f"<b>Date:</b> {bill_date.strftime('%d %B %Y')}<br/>"
                 f"<b>Bill No:</b> {bill_no}<br/>"
-                f"<b>Payment Mode:</b> {payment_mode. upper()}",
+                f"<b>Staff:</b> {staff_name}<br/>"
+                f"<b>Location:</b> {stall_location}<br/>"
+                f"<b>Payment Mode:</b> {payment_mode.upper()}",
                 styles["MetaInfo"]
             )
         ]
@@ -492,16 +614,18 @@ def checkout():
     doc.build(elements, canvasmaker=InvoiceCanvas)
 
     # -------- SAVE SALE --------
-    cursor. execute("""
+    cursor.execute("""
         INSERT INTO sales
         (customer_name, phone, invoice_no, bill_no, bill_date,
          payment_mode, subtotal, discount_percent,
-         discount_amount, gst_amount, total_amount, pdf_file)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+         discount_amount, gst_amount, total_amount, pdf_file,
+         staff_id, stall_location)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     """, (
         customer_name, phone, invoice_no, bill_no, bill_date,
         payment_mode, base_price_total, discount_percent,
-        discount_amount, gst_amount, grand_total, pdf_filename
+        discount_amount, gst_amount, grand_total, pdf_filename,
+        staff_id, stall_location
     ))
 
     conn.commit()
@@ -533,7 +657,8 @@ def checkout():
 # =====================================================
 # DOWNLOAD PDF
 # =====================================================
-@app. route("/download/<filename>")
+@app.route("/download/<filename>")
+@login_required
 def download_pdf(filename):
     return send_from_directory(GENERATED_BILLS_DIR, filename, as_attachment=False)
 
