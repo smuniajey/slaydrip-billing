@@ -16,9 +16,22 @@
 <div class="page">
     <div class="form-wrapper">
 
+        <!-- ================= USER INFO (TOP RIGHT) ================= -->
+        <div style="position: absolute; top: 10px; right: 15px; text-align: right; font-size: 11px; color: #666;">
+            <span style="color: #000;">{{ staff_name }}</span>
+            <a href="/logout" style="color: #000; margin-left: 10px; text-decoration: none; font-weight: 600;">Logout</a>
+        </div>
+
         <!-- ================= BRAND HEADER ================= -->
         <h1 class="brand">SLAYDRIP</h1>
         <p class="subtitle">Billing & Checkout</p>
+
+        <!-- ================= STALL LOCATION (ONE LINE) ================= -->
+        <form method="POST" action="/update-stall-location" class="stall-location-form" style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #e5e5e5;">
+            <span style="font-size: 13px; font-weight: 500;">📍 Current Stall Location</span>
+            <input type="text" id="stall_location" name="stall_location" value="{{ current_stall_location }}" required>
+            <button type="submit">UPDATE</button>
+        </form>
 
         <!-- ================= CUSTOMER DETAILS ================= -->
         <h2>Customer Details</h2>
@@ -91,7 +104,7 @@
 
         <!-- ================= CART TABLE ================= -->
         <h2 style="margin-top:30px;">Cart</h2>
-        <div class="table-wrapper"></div>
+        <div class="table-wrapper">
             <table id="cart-table">
                 <thead>
                     <tr>
@@ -106,17 +119,8 @@
                 <tbody id="cart-body">
                 <!-- Filled by JS -->
                 </tbody>
-            </table}
+            </table>
         </div>
-
-
-    <div class="bill-summary">
-    
-    <hr>
-
-    
-</div>
-
 
         <!-- ================= GRAND TOTAL ================= -->
         <div class="cart-total">
@@ -133,18 +137,19 @@
                 <option value="UPI">UPI</option>
                 <option value="Card">Card</option>
             </select>
+        </div>
 
-
+        <!-- ================= DISCOUNT ================= -->
+        <div class="field">
             <label>Discount (%)</label>
-    <input 
-        type="number"
-        id="discount_percent"
-        name="discount_percent"
-        value="{{ discount_percent }}"
-        step="0.01"
-        required
-    >
-
+            <input 
+                type="number"
+                id="discount_percent"
+                name="discount_percent"
+                value="{{ discount_percent }}"
+                step="0.01"
+                required
+            >
         </div>
 
         <!-- ================= CONTINUE ================= -->

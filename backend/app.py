@@ -4,8 +4,8 @@
 from flask import Flask, render_template, request, session, jsonify, send_from_directory, redirect, url_for, flash
 from datetime import date
 import time, os, uuid
-#from backend.db import get_connection
-from db import get_connection
+from backend.db import get_connection
+#from db import get_connection
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
@@ -36,18 +36,6 @@ app = Flask(
     static_url_path="/static"
 )
 app.secret_key = "slaydrip_secret_key"
-
-# =====================================================
-# LOGIN REQUIRED DECORATOR
-# =====================================================
-def login_required(f):
-    """Decorator to protect routes that require authentication"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'staff_id' not in session:
-            return redirect(url_for('login'))
-        return f(*args, **kwargs)
-    return decorated_function
 
 # =====================================================
 # LOGIN REQUIRED DECORATOR
