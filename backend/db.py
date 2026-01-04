@@ -1,10 +1,9 @@
 import os
 import psycopg2
+from psycopg2.extras import RealDictCursor
 
 def get_connection():
-    database_url = os.environ.get("DATABASE_URL")  # ✅ KEY name
-
-    if not database_url:
-        raise RuntimeError("DATABASE_URL not set")
-
-    return psycopg2.connect(database_url)
+    return psycopg2.connect(
+        os.environ["DATABASE_URL"],
+        cursor_factory=RealDictCursor
+    )
