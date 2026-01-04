@@ -6,6 +6,9 @@
 
     <!-- ================= MAIN STYLESHEET ================= -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 </head>
 
 <body>
@@ -88,22 +91,23 @@
 
         <!-- ================= CART TABLE ================= -->
         <h2 style="margin-top:30px;">Cart</h2>
-
-        <table id="cart-table">
-            <thead>
-                <tr>
-                    <th>Design</th>
-                    <th>Size</th>
-                    <th>Qty</th>
-                    <th>Price</th>
-                    <th>Total</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="cart-body">
+        <div class="table-wrapper"></div>
+            <table id="cart-table">
+                <thead>
+                    <tr>
+                        <th>Design</th>
+                        <th>Size</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                        <th>Total</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="cart-body">
                 <!-- Filled by JS -->
-            </tbody>
-        </table>
+                </tbody>
+            </table}
+        </div>
 
 
     <div class="bill-summary">

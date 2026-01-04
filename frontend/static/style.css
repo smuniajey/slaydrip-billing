@@ -31,6 +31,13 @@ body {
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
 }
 
+.table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+
 /* ===============================
    BRANDING
    =============================== */
@@ -190,4 +197,53 @@ select:focus {
    =============================== */
 .hidden {
     display: none;
+}
+
+/* ===============================
+   MOBILE RESPONSIVE FIXES
+================================ */
+
+@media (max-width: 768px) {
+
+    body {
+        padding: 8px;
+        font-size: 14px;
+    }
+
+    .container {
+        width: 100%;
+        padding: 10px;
+    }
+
+    /* Forms */
+    input, select, button {
+        width: 100%;
+        margin-bottom: 10px;
+        font-size: 16px;
+        padding: 10px;
+    }
+
+    /* Tables */
+    table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    th, td {
+        padding: 8px;
+        font-size: 13px;
+    }
+
+    /* Buttons */
+    button {
+        min-height: 44px; /* thumb friendly */
+    }
+
+    /* Headings */
+    h1, h2, h3 {
+        font-size: 18px;
+        text-align: center;
+    }
 }

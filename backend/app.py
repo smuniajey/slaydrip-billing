@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, session, jsonify, send_from_d
 from datetime import date
 import time, os, uuid
 from backend.db import get_connection
+from psycopg2.extras import RealDictCursor
 
 # ReportLab – Enhanced Professional Invoice
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, PageBreak
@@ -91,7 +92,7 @@ class InvoiceCanvas(canvas.Canvas):
 @app. route("/")
 def home():
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     cursor.execute("""
         SELECT design_id, design_code, product_name, gender, color, price
@@ -113,7 +114,7 @@ def home():
 @app.route("/get-sizes/<int:design_id>")
 def get_sizes(design_id):
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     cursor.execute("""
         SELECT size FROM design_stock
@@ -151,7 +152,7 @@ def checkout():
 
     # -------- DB --------
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     cursor.execute("SELECT gst_percent FROM store_settings WHERE id=1")
     default_gst_percent = float(cursor.fetchone()["gst_percent"])
