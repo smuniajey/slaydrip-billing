@@ -7,7 +7,6 @@ import time, os, uuid
 from backend.db import get_connection
 #from db import get_connection
 from psycopg2.extras import RealDictCursor
-from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
 
 # ReportLab – Enhanced Professional Invoice
@@ -127,8 +126,8 @@ def login():
         conn.close()
         
         if staff and staff["is_active"]:
-            # Check hashed password
-            if check_password_hash(staff["password"], password):
+            # Check plain text password
+            if staff["password"] == password:
                 session["staff_id"] = staff["staff_id"]
                 session["staff_name"] = staff["full_name"]
                 session["username"] = staff["username"]
