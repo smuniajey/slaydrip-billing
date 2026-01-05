@@ -92,7 +92,7 @@ class InvoiceCanvas(canvas.Canvas):
         self.line(20*mm, 15*mm, A4[0]-20*mm, 15*mm)
         
         # Footer text
-        footer_text = "SLAYDRIP | Premium Fashion Wear | Contact: info@slaydrip.com | www.slaydrip.com"
+        footer_text = "SLAYDRIP | Premium Fashion Wear | Contact(ig): salydrip.in| www.slaydrip.com"
         self.drawCentredString(A4[0]/2, 11*mm, footer_text)
         
         # Page number
