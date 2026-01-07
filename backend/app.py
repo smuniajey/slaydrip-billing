@@ -5,8 +5,8 @@ from flask import Flask, render_template, request, session, jsonify, send_from_d
 from datetime import date
 from decimal import Decimal
 import time, os, uuid
-#from backend.db import get_connection
-from db import get_connection
+from backend.db import get_connection
+#from db import get_connection
 from psycopg2.extras import RealDictCursor
 from functools import wraps
 
