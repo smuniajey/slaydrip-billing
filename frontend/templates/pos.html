@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SLAYDRIP POS System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+<div class="page">
+    <div class="form-wrapper pos-wrapper">
+        <!-- User Info -->
+        <div style="position: absolute; top: 10px; right: 15px; text-align: right; font-size: 11px; color: #666;">
+            <span style="color: #000;">{{ staff_name }}</span>
+            <a href="/logout" style="color: #000; margin-left: 10px; text-decoration: none; font-weight: 600;">Logout</a>
+        </div>
+
+        <!-- Brand Header -->
+        <h1 class="brand">SLAYDRIP</h1>
+        <p class="subtitle">Point of Sale System</p>
+
+        <!-- Mode Selector -->
+        <div class="mode-selector">
+            <button class="mode-btn active" data-mode="sales" onclick="switchMode('sales')">
+                🛒 Sales
+            </button>
+            <button class="mode-btn" data-mode="return" onclick="switchMode('return')">
+                🔁 Return
+            </button>
+            <button class="mode-btn" data-mode="exchange" onclick="switchMode('exchange')">
+                🔄 Exchange
+            </button>
+        </div>
+
+        <!-- ======================================= -->
+        <!-- SALES MODE -->
+        <!-- ======================================= -->
+        <div id="sales-section" class="mode-section active">
+            <!-- Stall Location -->
+            <form method="POST" action="/update-stall-location" class="stall-location-form" style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #e5e5e5;">
+                <span style="font-size: 13px; font-weight: 500;">📍 Current Stall Location</span>
+                <input type="text" id="stall_location" name="stall_location" value="{{ current_stall_location }}" required>
+                <button type="submit">UPDATE</button>
+            </form>
+
+            <!-- Customer Details -->
+            <h2>Customer Details</h2>
+            <div class="field">
+                <label for="customer_name">Customer Name</label>
+                <input type="text" id="customer_name" name="customer_name" placeholder="Enter full name">
+            </div>
+            <div class="field">
+                <label for="phone">Phone Number</label>
+                <input type="text" id="phone" name="phone" placeholder="Enter phone number">
+            </div>
+
+            <!-- Product Selection -->
+            <h2>Product Details</h2>
+            <div class="field">
+                <label for="design">Design</label>
+                <select id="design" name="design_id">
+                    <option value="">Select design</option>
+                    {% for d in designs %}
+                    <option value="{{ d.design_id }}" data-price="{{ d.price }}">
+                        {{ d.design_code }} | {{ d.product_name }} | {{ d.color }} | {{ d.gender }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label for="size">Size</label>
+                <select id="size" name="size" required>
+                    <option value="">Select size</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="quantity">Quantity</label>
+                <input type="number" id="quantity" name="quantity" placeholder="Enter quantity" min="1" value="1">
+            </div>
+            <button type="button" class="primary-btn" onclick="addToCart()">Add to Cart</button>
+
+            <!-- Cart -->
+            <h2 style="margin-top:30px;">Cart</h2>
+            <div class="table-wrapper">
+                <table id="cart-table">
+                    <thead>
+                        <tr>
+                            <th>Design</th>
+                            <th>Size</th>
+                            <th>Qty</th>
+                            <th>Price</th>
+                            <th>Total</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cart-body"></tbody>
+                </table>
+            </div>
+            <div class="cart-total">
+                <span>Total Amount</span>
+                <span id="grand-total">₹0</span>
+            </div>
+
+            <!-- Payment & Discount -->
+            <div class="field">
+                <label for="payment_mode"><strong>Payment Mode</strong></label>
+                <select name="payment_mode" id="payment_mode">
+                    <option value="">-- Select Payment Mode --</option>
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Card">Card</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Discount (%)</label>
+                <input type="number" id="discount_percent" name="discount_percent" value="{{ discount_percent }}" step="0.01" required>
+            </div>
+            <button type="button" class="primary-btn" onclick="proceedToCheckout()">Complete Sale</button>
+        </div>
+
+        <!-- ======================================= -->
+        <!-- RETURN MODE -->
+        <!-- ======================================= -->
+        <div id="return-section" class="mode-section">
+            <!-- Invoice Lookup -->
+            <div class="field" style="display:flex; gap:10px; align-items:flex-end;">
+                <div style="flex:1;">
+                    <label for="return_invoice_no">Invoice Number</label>
+                    <input type="text" id="return_invoice_no" placeholder="e.g., INV-00012">
+                </div>
+                <button class="primary-btn" style="width:200px; margin:0;" onclick="fetchInvoiceForReturn()">Fetch Invoice</button>
+            </div>
+
+            <!-- Invoice Summary -->
+            <div id="return-invoice-summary" class="hidden invoice-summary">
+                <div style="display:flex; justify-content:space-between;">
+                    <div>
+                        <div><strong>Customer:</strong> <span id="return-sum-name"></span></div>
+                        <div><strong>Phone:</strong> <span id="return-sum-phone"></span></div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div><strong>Invoice:</strong> <span id="return-sum-invoice"></span></div>
+                        <div><strong>Date:</strong> <span id="return-sum-date"></span></div>
+                        <div><strong>Payment:</strong> <span id="return-sum-mode"></span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Return Items -->
+            <div id="return-items-block" class="hidden" style="margin-top:24px;">
+                <h2>Select Items to Return</h2>
+                <div class="table-wrapper">
+                    <table id="return-sold-table">
+                        <thead>
+                            <tr>
+                                <th>Design</th>
+                                <th>Size</th>
+                                <th>Sold</th>
+                                <th>Returned</th>
+                                <th>Available</th>
+                                <th>Return Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody id="return-sold-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Return Payment -->
+            <div class="field" style="margin-top:22px;">
+                <label for="return-payment"><strong>Refund Mode</strong></label>
+                <select id="return-payment">
+                    <option value="">-- Select Payment Mode --</option>
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Card">Card</option>
+                </select>
+            </div>
+
+            <button class="primary-btn" onclick="submitReturn()">Process Return</button>
+            <div id="return-message" class="message"></div>
+        </div>
+
+        <!-- ======================================= -->
+        <!-- EXCHANGE MODE -->
+        <!-- ======================================= -->
+        <div id="exchange-section" class="mode-section">
+            <!-- Invoice Lookup -->
+            <div class="field" style="display:flex; gap:10px; align-items:flex-end;">
+                <div style="flex:1;">
+                    <label for="exchange_invoice_no">Invoice Number</label>
+                    <input type="text" id="exchange_invoice_no" placeholder="e.g., INV-00012">
+                </div>
+                <button class="primary-btn" style="width:200px; margin:0;" onclick="fetchInvoiceForExchange()">Fetch Invoice</button>
+            </div>
+
+            <!-- Invoice Summary -->
+            <div id="exchange-invoice-summary" class="hidden invoice-summary">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                    <div>
+                        <div style="margin-bottom:6px;"><strong>Customer:</strong> <span id="exchange-sum-name"></span></div>
+                        <div><strong>Phone:</strong> <span id="exchange-sum-phone"></span></div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="margin-bottom:6px;"><strong>Invoice:</strong> <span id="exchange-sum-invoice"></span></div>
+                        <div style="margin-bottom:6px;"><strong>Date:</strong> <span id="exchange-sum-date"></span></div>
+                        <div><strong>Payment:</strong> <span id="exchange-sum-mode"></span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items Being Returned -->
+            <div id="exchange-items-block" class="hidden" style="margin-top:24px;">
+                <h2>Items to Return</h2>
+                <div class="table-wrapper">
+                    <table id="exchange-sold-table">
+                        <thead>
+                            <tr>
+                                <th>Design</th>
+                                <th>Size</th>
+                                <th>Sold</th>
+                                <th>Returned</th>
+                                <th>Available</th>
+                                <th>Price (₹)</th>
+                                <th>Return Qty</th>
+                                <th>Line Total (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="exchange-sold-body"></tbody>
+                                    <div style="margin-top:12px; text-align:right; font-size:14px; font-weight:600;">
+                                        <span>Returned Total Amount: </span>
+                                        <span id="exchange-returned-total" style="color:#d32f2f;">₹0.00</span>
+                                    </div>
+                    </table>
+                </div>
+            </div>
+
+            <!-- New Items for Exchange -->
+            <div id="exchange-new-block" class="hidden" style="margin-top:28px;">
+                <h2>New Items (for Exchange)</h2>
+                <div class="field" style="display:grid; grid-template-columns: 1.2fr 0.8fr 0.8fr 0.6fr 0.4fr; gap:10px; align-items:end;">
+                    <div>
+                        <label>Design</label>
+                        <select id="exchange-new-design">
+                            <option value="">Select design</option>
+                            {% for d in designs %}
+                            <option value="{{ d.design_id }}" data-price="{{ d.price }}">
+                                {{ d.design_code }} | {{ d.product_name }} | {{ d.color }} | {{ d.gender }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Size</label>
+                        <select id="exchange-new-size">
+                            <option value="">Select size</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Price (auto)</label>
+                        <input type="number" id="exchange-new-price" readonly>
+                    </div>
+                    <div>
+                        <label>Qty</label>
+                        <input type="number" id="exchange-new-qty" min="1" value="1">
+                    </div>
+                    <button class="primary-btn" style="margin:0;" onclick="addExchangeNewItem()">Add</button>
+                </div>
+
+                <div class="table-wrapper" style="margin-top:14px;">
+                    <table id="exchange-new-table">
+                        <thead>
+                            <tr>
+                                <th>Design</th>
+                                <th>Size</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>Line Total</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="exchange-new-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Exchange Discount -->
+            <div class="field hidden" id="exchange-discount-field" style="margin-top:22px;">
+                <label for="exchange-discount"><strong>Discount (%)</strong></label>
+                <input type="number" id="exchange-discount" value="{{ discount_percent }}" step="0.01" min="0" max="100" oninput="calculateExchangeSettlement()">
+            </div>
+
+            <!-- Settlement Summary -->
+            <div id="exchange-settlement-summary" class="hidden" style="margin-top:20px; padding:16px; border:2px solid #000; border-radius:12px; background:#f9f9f9;">
+                <h3 style="margin:0 0 12px 0; font-size:16px;">Settlement Summary</h3>
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <span><strong>Returned Value:</strong></span>
+                    <span id="settlement-returned-value">₹0.00</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <span><strong>New Items Value:</strong></span>
+                    <span id="settlement-new-value">₹0.00</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px; padding-top:8px; border-top:1px solid #ddd;">
+                    <span><strong>Discount:</strong></span>
+                    <span id="settlement-discount">-₹0.00</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding-top:12px; border-top:2px solid #000; font-size:18px; font-weight:700;">
+                    <span id="settlement-type">EVEN</span>
+                    <span id="settlement-amount" style="color:#000;">₹0.00</span>
+                </div>
+            </div>
+
+            <!-- Exchange Payment -->
+            <div id="exchange-payment-section" class="field hidden" style="margin-top:22px;">
+                <label for="exchange-payment"><strong>Settlement Mode</strong></label>
+                <select id="exchange-payment">
+                    <option value="">-- Select Payment Mode --</option>
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Card">Card</option>
+                </select>
+            </div>
+
+            <button class="primary-btn" onclick="submitExchange()">Process Exchange</button>
+            <div id="exchange-message" class="message"></div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='pos.js') }}"></script>
+</body>
+</html>

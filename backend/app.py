@@ -3,9 +3,10 @@
 # =====================================================
 from flask import Flask, render_template, request, session, jsonify, send_from_directory, redirect, url_for, flash
 from datetime import date
+from decimal import Decimal
 import time, os, uuid
-from backend.db import get_connection
-#from db import get_connection
+#from backend.db import get_connection
+from db import get_connection
 from psycopg2.extras import RealDictCursor
 from functools import wraps
 
@@ -36,6 +37,8 @@ app = Flask(
 )
 app.secret_key = "slaydrip_secret_key"
 
+ALLOWED_PAYMENT_MODES = {"Cash", "UPI", "Card"}
+
 # =====================================================
 # LOGIN REQUIRED DECORATOR
 # =====================================================
@@ -47,6 +50,55 @@ def login_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
+
+
+def generate_ref(prefix: str) -> str:
+    """Generate a short reference for returns/exchanges."""
+    return f"{prefix}-{int(time.time())}-{uuid.uuid4().hex[:5].upper()}"
+
+
+def load_returnable_items(cursor, invoice_no: str):
+    """Fetch sold items with how many units are still returnable."""
+    cursor.execute(
+        """
+        SELECT
+            si.design_id,
+            si.size,
+            si.quantity AS sold_qty,
+            si.price AS unit_price,
+            d.design_code,
+            d.product_name,
+            d.color,
+            COALESCE(r.total_returned, 0) AS already_returned
+        FROM sale_items si
+        JOIN designs d ON d.design_id = si.design_id
+        LEFT JOIN (
+            SELECT invoice_no, design_id, size, SUM(quantity) AS total_returned
+            FROM returns
+            WHERE invoice_no = %s
+            GROUP BY invoice_no, design_id, size
+        ) r
+        ON r.invoice_no = si.invoice_no AND r.design_id = si.design_id AND r.size = si.size
+        WHERE si.invoice_no = %s
+        """,
+        (invoice_no, invoice_no)
+    )
+
+    items = {}
+    for row in cursor.fetchall():
+        returnable = max(0, row["sold_qty"] - row["already_returned"])
+        items[(row["design_id"], row["size"])] = {
+            "design_id": row["design_id"],
+            "size": row["size"],
+            "sold_qty": row["sold_qty"],
+            "unit_price": float(row["unit_price"]),
+            "design_code": row["design_code"],
+            "product_name": row["product_name"],
+            "color": row["color"],
+            "already_returned": row["already_returned"],
+            "returnable": returnable
+        }
+    return items
 
 # =====================================================
 # CUSTOM PAGE TEMPLATE WITH WATERMARK
@@ -199,7 +251,7 @@ def home():
     conn.close()
 
     return render_template(
-        "index.html", 
+        "pos.html", 
         designs=designs, 
         discount_percent=discount_percent,
         current_stall_location=current_stall_location,
@@ -216,8 +268,8 @@ def get_sizes(design_id):
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     cursor.execute("""
-        SELECT size FROM design_stock
-        WHERE design_id=%s AND stock>0
+        SELECT size, stock FROM design_stock
+        WHERE design_id=%s
     """, (design_id,))
 
     sizes = cursor.fetchall()
@@ -615,6 +667,27 @@ def checkout():
         staff_id, stall_location
     ))
 
+    # -------- SAVE SALE ITEMS --------
+    for item in cart:
+        cursor.execute("""
+            INSERT INTO sale_items
+            (invoice_no, design_id, size, quantity, price)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (
+            invoice_no,
+            item['design_id'],
+            item['size'],
+            item['quantity'],
+            item['price']
+        ))
+        
+        # Update stock
+        cursor.execute("""
+            UPDATE design_stock
+            SET stock = stock - %s
+            WHERE design_id = %s AND size = %s
+        """, (item['quantity'], item['design_id'], item['size']))
+
     conn.commit()
     cursor.close()
     conn.close()
@@ -639,6 +712,324 @@ def checkout():
         gst_amount=gst_amount,
         grand_total=grand_total
     )
+
+
+# =====================================================
+# RETURNS & EXCHANGES
+# =====================================================
+@app.route("/return-exchange")
+@login_required
+def return_exchange_page():
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute(
+        """
+        SELECT design_id, design_code, product_name, color, gender, price
+        FROM designs
+        ORDER BY design_code
+        """
+    )
+    designs = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return render_template(
+        "return_exchange.html",
+        designs=designs,
+        staff_name=session.get("staff_name", "Unknown")
+    )
+
+
+@app.route("/api/invoice/<invoice_no>")
+@login_required
+def api_get_invoice(invoice_no):
+    invoice_no = invoice_no.strip()
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute(
+        """
+        SELECT invoice_no, customer_name, phone, bill_date, payment_mode, total_amount
+        FROM sales
+        WHERE invoice_no=%s
+        """,
+        (invoice_no,)
+    )
+    sale = cursor.fetchone()
+    if not sale:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Invoice not found"}), 404
+
+    items = load_returnable_items(cursor, invoice_no)
+
+    cursor.close()
+    conn.close()
+
+    return jsonify({
+        "sale": sale,
+        "items": list(items.values())
+    })
+
+
+@app.route("/api/returns", methods=["POST"])
+@login_required
+def api_process_return():
+    payload = request.get_json(force=True) or {}
+    invoice_no = (payload.get("invoice_no") or "").strip()
+    payment_mode = (payload.get("payment_mode") or "").strip()
+    items = payload.get("items") or []
+
+    if not invoice_no:
+        return jsonify({"error": "Invoice number is required"}), 400
+    if payment_mode not in ALLOWED_PAYMENT_MODES:
+        return jsonify({"error": "Invalid payment mode"}), 400
+    if not items:
+        return jsonify({"error": "No items selected"}), 400
+
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    def fail(message, status=400):
+        conn.rollback()
+        cursor.close(); conn.close()
+        return jsonify({"error": message}), status
+
+    try:
+        cursor.execute("SELECT 1 FROM sales WHERE invoice_no=%s", (invoice_no,))
+        if not cursor.fetchone():
+            return fail("Invoice not found", 404)
+
+        sold_items = load_returnable_items(cursor, invoice_no)
+        if not sold_items:
+            return fail("No items found for invoice")
+
+        ref = generate_ref("RET")
+        total_refund = Decimal("0.00")
+        processed = []
+
+        for item in items:
+            try:
+                design_id = int(item.get("design_id"))
+                size = (item.get("size") or "").strip()
+                qty = int(item.get("quantity"))
+            except Exception:
+                return fail("Invalid item payload")
+
+            key = (design_id, size)
+            if key not in sold_items:
+                return fail(f"Item {design_id}-{size} not in invoice")
+
+            allowed = sold_items[key]["returnable"]
+            if qty <= 0 or qty > allowed:
+                return fail(f"Invalid qty for {design_id}-{size}. Max {allowed}")
+
+            unit_price = Decimal(str(sold_items[key]["unit_price"]))
+            line_refund = unit_price * qty
+            total_refund += line_refund
+
+            cursor.execute(
+                """
+                UPDATE design_stock
+                SET stock = stock + %s
+                WHERE design_id=%s AND size=%s
+                """,
+                (qty, design_id, size)
+            )
+            if cursor.rowcount == 0:
+                raise RuntimeError(f"Stock row missing for design {design_id} size {size}")
+
+            cursor.execute(
+                """
+                INSERT INTO returns
+                (return_ref, invoice_no, design_id, size, quantity, refund_amount, return_type, payment_mode)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (ref, invoice_no, design_id, size, qty, line_refund, "RETURN", payment_mode)
+            )
+
+            processed.append({
+                "design_id": design_id,
+                "size": size,
+                "quantity": qty,
+                "refund_amount": float(line_refund)
+            })
+
+        conn.commit()
+        cursor.close(); conn.close()
+
+        return jsonify({
+            "return_ref": ref,
+            "total_refund": float(total_refund),
+            "items": processed
+        })
+
+    except Exception as exc:
+        conn.rollback()
+        cursor.close(); conn.close()
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/exchanges", methods=["POST"])
+@login_required
+def api_process_exchange():
+    payload = request.get_json(force=True) or {}
+    invoice_no = (payload.get("invoice_no") or "").strip()
+    payment_mode = (payload.get("payment_mode") or "").strip()
+    return_items = payload.get("return_items") or []
+    new_items = payload.get("new_items") or []
+    # Optional discount percent applied to new exchange items
+    try:
+        discount_percent = float(payload.get("discount_percent") or 0)
+        if discount_percent < 0:
+            discount_percent = 0.0
+    except Exception:
+        discount_percent = 0.0
+
+    if not invoice_no:
+        return jsonify({"error": "Invoice number is required"}), 400
+    if payment_mode not in ALLOWED_PAYMENT_MODES:
+        return jsonify({"error": "Invalid payment mode"}), 400
+    if not return_items:
+        return jsonify({"error": "At least one item must be returned"}), 400
+
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    def fail(message, status=400):
+        conn.rollback()
+        cursor.close(); conn.close()
+        return jsonify({"error": message}), status
+
+    try:
+        cursor.execute("SELECT 1 FROM sales WHERE invoice_no=%s", (invoice_no,))
+        if not cursor.fetchone():
+            return fail("Invoice not found", 404)
+
+        sold_items = load_returnable_items(cursor, invoice_no)
+        if not sold_items:
+            return fail("No items found for invoice")
+
+        # Map design price for new items
+        cursor.execute("SELECT design_id, price FROM designs")
+        design_price_map = {row["design_id"]: Decimal(str(row["price"])) for row in cursor.fetchall()}
+
+        exc_ref = generate_ref("EXC")
+        returned_total = Decimal("0.00")
+        new_total = Decimal("0.00")
+
+        # Handle returned items first (stock + refund credit)
+        for item in return_items:
+            design_id = int(item.get("design_id"))
+            size = (item.get("size") or "").strip()
+            qty = int(item.get("quantity"))
+
+            key = (design_id, size)
+            if key not in sold_items:
+                return fail(f"Item {design_id}-{size} not in invoice")
+
+            allowed = sold_items[key]["returnable"]
+            if qty <= 0 or qty > allowed:
+                return fail(f"Invalid qty for {design_id}-{size}. Max {allowed}")
+
+            unit_price = Decimal(str(sold_items[key]["unit_price"]))
+            line_refund = unit_price * qty
+            returned_total += line_refund
+
+            cursor.execute(
+                """
+                UPDATE design_stock
+                SET stock = stock + %s
+                WHERE design_id=%s AND size=%s
+                """,
+                (qty, design_id, size)
+            )
+            if cursor.rowcount == 0:
+                raise RuntimeError(f"Stock row missing for design {design_id} size {size}")
+
+            cursor.execute(
+                """
+                INSERT INTO returns
+                (return_ref, invoice_no, design_id, size, quantity, refund_amount, return_type, payment_mode)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (exc_ref, invoice_no, design_id, size, qty, line_refund, "EXCHANGE", payment_mode)
+            )
+
+        # Handle new items (stock - and record in exchange_details)
+        for item in new_items:
+            design_id = int(item.get("design_id"))
+            size = (item.get("size") or "").strip()
+            qty = int(item.get("quantity"))
+
+            if qty <= 0:
+                return fail("Quantity must be positive for new items")
+
+            if design_id not in design_price_map:
+                return fail(f"Design {design_id} not found")
+
+            unit_price = design_price_map[design_id]
+
+            cursor.execute(
+                "SELECT stock FROM design_stock WHERE design_id=%s AND size=%s",
+                (design_id, size)
+            )
+            row = cursor.fetchone()
+            if not row:
+                return fail(f"No stock row for {design_id}-{size}")
+            if row["stock"] < qty:
+                return fail(f"Insufficient stock for {design_id}-{size}")
+
+            cursor.execute(
+                """
+                UPDATE design_stock
+                SET stock = stock - %s
+                WHERE design_id=%s AND size=%s
+                """,
+                (qty, design_id, size)
+            )
+
+            line_total = unit_price * qty
+            new_total += line_total
+
+            cursor.execute(
+                """
+                INSERT INTO exchange_details
+                (exchange_ref, invoice_no, design_id, size, quantity, unit_price, line_total)
+                VALUES (%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (exc_ref, invoice_no, design_id, size, qty, unit_price, line_total)
+            )
+
+        # Apply discount on new items total for settlement purpose
+        discount_amount = (new_total * Decimal(str(discount_percent))) / Decimal("100")
+        new_total_after_discount = new_total - discount_amount
+
+        diff = returned_total - new_total_after_discount
+        if diff > 0:
+            settlement = {"type": "REFUND", "amount": float(diff)}
+        elif diff < 0:
+            settlement = {"type": "COLLECT", "amount": float(abs(diff))}
+        else:
+            settlement = {"type": "EVEN", "amount": 0.0}
+
+        conn.commit()
+        cursor.close(); conn.close()
+
+        return jsonify({
+            "exchange_ref": exc_ref,
+            "returned_total": float(returned_total),
+            "new_total": float(new_total),
+            "discount_percent": discount_percent,
+            "discount_amount": float(discount_amount),
+            "settlement": settlement,
+            "payment_mode": payment_mode
+        })
+
+    except Exception as exc:
+        conn.rollback()
+        cursor.close(); conn.close()
+        return jsonify({"error": str(exc)}), 500
 
 
 # =====================================================

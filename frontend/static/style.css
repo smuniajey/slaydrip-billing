@@ -32,6 +32,12 @@ body {
     position: relative;
 }
 
+/* POS wrapper - wider for unified interface */
+.pos-wrapper {
+    max-width: 980px;
+    width: 100%;
+}
+
 .table-wrapper {
     width: 100%;
     overflow-x: auto;
@@ -151,6 +157,76 @@ select:focus {
     color: #222;
 }
 
+/* Shared data tables on return/exchange page */
+#sold-table,
+#new-table,
+#return-sold-table,
+#exchange-sold-table,
+#exchange-new-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+#sold-table th,
+#new-table th,
+#return-sold-table th,
+#exchange-sold-table th,
+#exchange-new-table th {
+    text-align: left;
+    font-weight: 600;
+    color: #fff;
+    background: #000;
+    padding: 12px 10px;
+    border: 1px solid #333;
+}
+
+#sold-table td,
+#new-table td,
+#return-sold-table td,
+#exchange-sold-table td,
+#exchange-new-table td {
+    padding: 12px 10px;
+    border: 1px solid #e5e5e5;
+    vertical-align: middle;
+    color: #1d1d1f;
+    background: #fff;
+}
+
+#return-sold-table td:nth-child(1),
+#exchange-sold-table td:nth-child(1) {
+    width: 35%;
+}
+
+#return-sold-table td:nth-child(2),
+#exchange-sold-table td:nth-child(2),
+#return-sold-table td:nth-child(3),
+#exchange-sold-table td:nth-child(3),
+#return-sold-table td:nth-child(4),
+#exchange-sold-table td:nth-child(4),
+#return-sold-table td:nth-child(5),
+#exchange-sold-table td:nth-child(5) {
+    text-align: center;
+    width: 10%;
+}
+
+#return-sold-table td:nth-child(6),
+#exchange-sold-table td:nth-child(6) {
+    text-align: center;
+    width: 15%;
+}
+
+#return-sold-table input[type="number"],
+#exchange-sold-table input[type="number"] {
+    width: 70px;
+    padding: 8px;
+    border: 1px solid #d2d2d7;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 14px;
+}
+
 /* Design column wider */
 #cart-table td:first-child {
     width: 45%;
@@ -241,6 +317,89 @@ select:focus {
    =============================== */
 .hidden {
     display: none;
+}
+
+/* ===============================
+   MODE SELECTOR & SECTIONS
+   =============================== */
+.mode-selector {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e5e5e5;
+}
+
+.mode-btn {
+    flex: 1;
+    padding: 12px 20px;
+    background: #ffffff;
+    color: #000000;
+    border: 2px solid #d2d2d7;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.3px;
+}
+
+.mode-btn:hover {
+    border-color: #000000;
+    background: #f5f5f7;
+}
+
+.mode-btn.active {
+    background: #000000;
+    color: #ffffff;
+    border-color: #000000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.mode-section {
+    display: none;
+}
+
+.mode-section.active {
+    display: block;
+}
+
+.invoice-summary {
+    margin-top: 20px;
+    padding: 18px 20px;
+    border: 2px solid #000;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+
+.message {
+    margin-top: 16px;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 18px 20px;
+    border-radius: 12px;
+    background: #f5f5f7;
+    white-space: pre-line;
+    line-height: 1.6;
+    text-align: center;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.message:not(:empty) {
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* ===============================
