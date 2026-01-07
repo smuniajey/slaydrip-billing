@@ -3,6 +3,17 @@
 // =====================================================
 
 // =====================================================
+// UTILITY FUNCTIONS
+// =====================================================
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+}
+
+// =====================================================
 // MODE MANAGEMENT
 // =====================================================
 let currentMode = 'sales';
@@ -258,7 +269,7 @@ function renderReturnInvoiceSummary() {
     document.getElementById("return-sum-name").innerText = s.customer_name;
     document.getElementById("return-sum-phone").innerText = s.phone;
     document.getElementById("return-sum-invoice").innerText = s.invoice_no;
-    document.getElementById("return-sum-date").innerText = s.bill_date ? new Date(s.bill_date).toLocaleDateString() : "";
+    document.getElementById("return-sum-date").innerText = s.bill_date ? formatDate(s.bill_date) : "";
     document.getElementById("return-sum-mode").innerText = s.payment_mode;
 }
 
@@ -530,7 +541,7 @@ function renderExchangeInvoiceSummary() {
     document.getElementById("exchange-sum-name").innerText = s.customer_name;
     document.getElementById("exchange-sum-phone").innerText = s.phone;
     document.getElementById("exchange-sum-invoice").innerText = s.invoice_no;
-    document.getElementById("exchange-sum-date").innerText = s.bill_date ? new Date(s.bill_date).toLocaleDateString() : "";
+    document.getElementById("exchange-sum-date").innerText = s.bill_date ? formatDate(s.bill_date) : "";
     document.getElementById("exchange-sum-mode").innerText = s.payment_mode;
 }
 

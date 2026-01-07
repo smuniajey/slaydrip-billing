@@ -1,3 +1,14 @@
+// =====================================================
+// UTILITY FUNCTIONS
+// =====================================================
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+}
+
 let currentInvoice = null;
 let soldItems = [];
 let newItems = [];
@@ -39,7 +50,7 @@ function renderInvoiceSummary() {
     document.getElementById("sum-name").innerText = s.customer_name;
     document.getElementById("sum-phone").innerText = s.phone;
     document.getElementById("sum-invoice").innerText = s.invoice_no;
-    document.getElementById("sum-date").innerText = s.bill_date ? new Date(s.bill_date).toLocaleDateString() : "";
+    document.getElementById("sum-date").innerText = s.bill_date ? formatDate(s.bill_date) : "";
     document.getElementById("sum-mode").innerText = s.payment_mode;
 }
 

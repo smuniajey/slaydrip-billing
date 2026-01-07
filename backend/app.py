@@ -457,7 +457,7 @@ def checkout():
             Paragraph(
                 f"<b><font size=14>INVOICE</font></b><br/>"
                 f"<b>Invoice No:</b> {invoice_no}<br/>"
-                f"<b>Date:</b> {bill_date.strftime('%d %B %Y')}<br/>"
+                f"<b>Date:</b> {bill_date.strftime('%d.%m.%Y')}<br/>"
                 f"<b>Bill No:</b> {bill_no}<br/>"
                 f"<b>Staff:</b> {staff_name}<br/>"
                 f"<b>Location:</b> {stall_location}<br/>"
@@ -701,7 +701,7 @@ def checkout():
         phone=phone,
         invoice_no=invoice_no,
         bill_no=bill_no,
-        bill_date=bill_date. strftime("%d-%m-%Y"),
+        bill_date=bill_date.strftime("%d.%m.%Y"),
         payment_mode=payment_mode,
         subtotal=subtotal_inclusive,
         base_price=base_price_total,
