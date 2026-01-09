@@ -37,6 +37,12 @@ app = Flask(
 )
 app.secret_key = "slaydrip_secret_key"
 
+
+@app.route("/health")
+def health():
+    return "OK", 200
+
+
 ALLOWED_PAYMENT_MODES = {"Cash", "UPI", "Card"}
 
 # =====================================================
@@ -1045,3 +1051,5 @@ def download_pdf(filename):
 # =====================================================
 if __name__ == "__main__":
     app.run(debug=True)
+
+
